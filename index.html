@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome to Socratic Minds</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&display=swap" rel="stylesheet">
+    <!-- AI Focus Tracker Libraries -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-core@4.10.0/dist/tf-core.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgl@4.10.0/dist/tf-backend-webgl.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1633559619/face_mesh.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/face-landmarks-detection@1.0.5/dist/face-landmarks-detection.min.js"></script>
+    <style>
+        :root {
+            --primary-color: #2563eb;
+            --secondary-color: #f59e0b;
+            --bg-sky: #87CEEB;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: linear-gradient(to bottom, var(--bg-sky), #ffffff);
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+
+        .background-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+        }
+
+        .cloud {
+            position: absolute;
+            background: white;
+            border-radius: 50%;
+            opacity: 0.7;
+            animation: drift 60s linear infinite;
+        }
+        .cloud::before, .cloud::after {
+            content: '';
+            position: absolute;
+            background: white;
+            border-radius: 50%;
+        }
+        .cloud1 { width: 200px; height: 60px; top: 10%; left: -250px; }
+        .cloud1::before { width: 100px; height: 100px; top: -50px; left: 40px; }
+        .cloud1::after { width: 120px; height: 80px; top: -30px; right: 30px; }
+        
+        .cloud2 { width: 300px; height: 80px; top: 25%; left: -350px; animation-delay: -20s; }
+        .cloud2::before { width: 150px; height: 120px; top: -60px; left: 50px; }
+        .cloud2::after { width: 180px; height: 100px; top: -40px; right: 40px; }
+
+        @keyframes drift {
+            from { transform: translateX(-350px); }
+            to { transform: translateX(100vw); }
+        }
+
+        .main-container {
+            text-align: center;
+            z-index: 10;
+        }
+
+        .main-container h1 {
+            font-size: 4rem;
+            font-weight: 800;
+            color: white;
+            text-shadow: 0 4px 10px rgba(0,0,0,0.2);
+            margin-bottom: 3rem;
+        }
+
+        .choices-container {
+            display: flex;
+            gap: 4rem;
+            justify-content: center;
+        }
+
+        .choice-card {
+            width: 300px;
+            height: 400px;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+            padding: 2rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            text-decoration: none;
+            color: #1e293b;
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.3s;
+        }
+        .choice-card:hover {
+            transform: translateY(-15px);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+        }
+
+        .choice-card .icon {
+            width: 200px;
+            height: 200px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .choice-card svg {
+            width: 100%;
+            height: 100%;
+        }
+        
+        .choice-card h2 {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--primary-color);
+        }
+
+        .choice-card p {
+            font-size: 1rem;
+            color: #6B7280;
+        }
+        
+        /* Focus Tracker Styles */
+        #focus-tracker-container {
+            position: fixed;
+            bottom: 10px;
+            left: 10px;
+            width: 1px; /* Hidden from view */
+            height: 1px; /* Hidden from view */
+            opacity: 0;
+            z-index: -10;
+        }
+
+        .modal {
+            transition: opacity 0.5s, transform 0.5s;
+        }
+        .modal.hidden {
+            opacity: 0;
+            transform: translateY(50px) scale(0.9);
+            pointer-events: none;
+        }
+        .robot-bounce {
+            animation: bounce 2s infinite;
+        }
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+            40% { transform: translateY(-20px); }
+            60% { transform: translateY(-10px); }
+        }
+
+        @media (max-width: 768px) {
+            .choices-container { flex-direction: column; gap: 2rem; }
+            .choice-card { width: 80vw; max-width: 300px; height: auto; }
+            .main-container h1 { font-size: 2.5rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="background-container">
+        <div class="cloud cloud1"></div>
+        <div class="cloud cloud2"></div>
+    </div>
+
+    <div class="main-container">
+        <h1>Welcome to Socratic Minds</h1>
+        <div class="choices-container">
+            <a href="https://socratic-bot.vercel.app/" id="socratic-ai-link" class="choice-card">
+                <div class="icon">
+                    <svg viewBox="0 0 200 200"><defs><linearGradient id="ai-grad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#8B5CF6;stop-opacity:1" /><stop offset="100%" style="stop-color:#EC4899;stop-opacity:1" /></linearGradient></defs><path d="M 100,20 A 80,80 0 1 1 100,180 A 80,80 0 1 1 100,20 Z" fill="url(#ai-grad)"/><circle cx="100" cy="100" r="65" fill="white"/><g fill="#8B5CF6"><circle cx="75" cy="85" r="10"/><circle cx="125" cy="85" r="10"/><path d="M 70 120 A 30 30 0 0 0 130 120" stroke="#8B5CF6" stroke-width="8" fill="none" stroke-linecap="round"/></g><path d="M 90,10 L 110,10 L 100, 30 Z" fill="#f59e0b"/></svg>
+                </div>
+                <h2>Socratic AI</h2>
+                <p>Chat with a friendly AI tutor who guides you through any problem.</p>
+            </a>
+            <a href="https://mysteory-game.vercel.app/" id="socratic-game-link" class="choice-card">
+                <div class="icon">
+                    <svg viewBox="0 0 200 200"><defs><linearGradient id="game-grad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#22c55e;stop-opacity:1" /><stop offset="100%" style="stop-color:#3b82f6;stop-opacity:1" /></linearGradient></defs><path d="M 100,20 A 80,80 0 1 1 100,180 A 80,80 0 1 1 100,20 Z" fill="url(#game-grad)"/><circle cx="100" cy="100" r="65" fill="white"/><g transform="translate(75, 90)"><rect x="5" y="0" width="40" height="30" rx="15" fill="#d1d5db"/><rect x="0" y="5" width="50" height="20" rx="10" fill="#9ca3af"/><circle cx="25" cy="15" r="8" fill="#facc15"/><rect x="15" y="-20" width="20" height="20" rx="5" fill="#d1d5db"/><circle cx="20" cy="-12" r="3" fill="#3b82f6"/><circle cx="30" cy="-12" r="3" fill="#3b82f6"/></g><g fill="#84CC16" stroke="white" stroke-width="2"><rect x="40" y="130" width="50" height="20" rx="5" transform="rotate(-15 65 140)"/><rect x="80" y="110" width="50" height="20" rx="5" transform="rotate(-15 105 120)"/></g></svg>
+                </div>
+                <h2>Socratic Game</h2>
+                <p>Play fun math games and adventures to sharpen your skills.</p>
+            </a>
+        </div>
+    </div>
+    
+    <!-- AI Focus Tracker Elements -->
+    <div id="focus-tracker-container">
+        <video id="video" autoplay playsinline muted></video>
+        <canvas id="canvas"></canvas>
+    </div>
+    
+    <div id="robot-modal" class="modal hidden fixed bottom-5 right-5 bg-gradient-to-br from-gray-700 to-gray-800 border-2 border-cyan-400 p-6 rounded-2xl shadow-lg max-w-sm text-center text-white">
+        <div class="text-6xl mb-4 robot-bounce">🤖</div>
+        <h3 id="robot-title" class="text-xl font-bold text-cyan-400 mb-2">Hey there!</h3>
+        <p id="robot-message" class="text-gray-300 mb-4">Looks like you're losing focus. How about a quick break?</p>
+        <button id="robot-close" class="bg-cyan-500 hover:bg-cyan-600 text-white font-bold py-2 px-4 rounded-lg">Got it!</button>
+    </div>
+
+    <script>
+        // --- AI Focus Tracker Logic ---
+        const video = document.getElementById('video');
+        const robotModal = document.getElementById('robot-modal');
+        const robotTitle = document.getElementById('robot-title');
+        const robotMessage = document.getElementById('robot-message');
+        const robotCloseButton = document.getElementById('robot-close');
+
+        let detector, stream, animationFrameId;
+        let isTracking = false;
+        let distractionStartTime = null;
+        let canShowModal = true;
+        
+        const DISTRACTION_THRESHOLD_SECONDS = 5;
+        const MODAL_COOLDOWN_SECONDS = 20;
+
+        const distractionMessages = [
+            "Let's refocus! Try the 5-4-3-2-1 method: Name 5 things you see, 4 you can touch, 3 you hear, 2 you smell, and 1 you taste.",
+            "Mind wandering? Let's try some box breathing. Inhale for 4s, hold for 4s, exhale for 4s, hold for 4s. Repeat 3 times.",
+            "You looked away! Quick, name three things in the room that are the color blue. It helps reset your brain."
+        ];
+
+        function speakMessage(text) {
+            if ('speechSynthesis' in window) {
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.rate = 1.1;
+                window.speechSynthesis.speak(utterance);
+            }
+        }
+
+        function showRobotMessage() {
+            if (!canShowModal) return;
+            
+            robotTitle.textContent = "A little distracted?";
+            const message = distractionMessages[Math.floor(Math.random() * distractionMessages.length)];
+            robotMessage.textContent = message;
+            speakMessage(message);
+            robotModal.classList.remove('hidden');
+            canShowModal = false;
+
+            setTimeout(() => {
+                canShowModal = true;
+            }, MODAL_COOLDOWN_SECONDS * 1000);
+        }
+
+        function hideRobotMessage() {
+            robotModal.classList.add('hidden');
+        }
+
+        async function loadModelAndStart() {
+            try {
+                console.log("Loading model...");
+                const model = faceLandmarksDetection.SupportedModels.MediaPipeFaceMesh;
+                const detectorConfig = {
+                    runtime: 'mediapipe',
+                    solutionPath: 'https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1633559619',
+                    maxFaces: 1,
+                };
+                detector = await faceLandmarksDetection.createDetector(model, detectorConfig);
+                console.log("Model loaded.");
+                await startTracking();
+            } catch (err) {
+                console.error("Error loading model or starting tracking:", err);
+            }
+        }
+
+        async function startTracking() {
+            if (!detector) return;
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+                video.srcObject = stream;
+                await new Promise((resolve) => {
+                    video.onloadedmetadata = () => {
+                        video.play();
+                        resolve();
+                    };
+                });
+                isTracking = true;
+                detectFace();
+            } catch (err) {
+                console.error("Error accessing webcam:", err);
+            }
+        }
+
+        async function detectFace() {
+            if (!isTracking) return;
+
+            const faces = await detector.estimateFaces(video, { flipHorizontal: false });
+
+            if (faces.length > 0) {
+                const keypoints = faces[0].keypoints;
+                analyzePose(keypoints);
+            } else {
+                handleDistraction();
+            }
+
+            animationFrameId = requestAnimationFrame(detectFace);
+        }
+
+        function analyzePose(keypoints) {
+            const leftEye = keypoints[33];
+            const rightEye = keypoints[263];
+            const nose = keypoints[1];
+            const yawRatio = Math.abs(nose.x - leftEye.x) / Math.abs(nose.x - rightEye.x);
+
+            if (yawRatio > 1.8 || yawRatio < 0.5) {
+                handleDistraction();
+            } else {
+                handleFocus();
+            }
+        }
+
+        function handleDistraction() {
+            if (!distractionStartTime) {
+                distractionStartTime = new Date();
+            } else {
+                const secondsDistracted = (new Date() - distractionStartTime) / 1000;
+                if (secondsDistracted >= DISTRACTION_THRESHOLD_SECONDS) {
+                    showRobotMessage();
+                    distractionStartTime = null; // Reset timer after showing message
+                }
+            }
+        }
+
+        function handleFocus() {
+            distractionStartTime = null;
+        }
+
+        // --- Event Listeners ---
+        robotCloseButton.addEventListener('click', hideRobotMessage);
+        
+        // Automatically start the focus tracker when the page loads
+        window.addEventListener('load', loadModelAndStart);
+
+    </script>
+</body>
+</html>
